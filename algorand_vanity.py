@@ -2,14 +2,44 @@ import argparse
 import curses
 import multiprocessing
 import re
+import signal
 import time
 from algosdk import account, mnemonic
 from multiprocessing import Process, Value, Lock, Queue
 from queue import Empty
 
 valid = re.compile('^[A-Z2-7]+$')
-
 update_rate = 1/30
+processes = []
+
+def signal_handler(sig, frame):
+    terminate_processes()
+    screen = save_screen(stdscr)
+    curses.use_default_colors()
+    curses.nocbreak()
+    curses.echo()
+    curses.curs_set(1)
+    print_screen(screen)
+    exit()
+
+def terminate_processes():
+    for proc in processes:
+        proc.terminate()
+
+def save_screen(stdscr):
+    y, x = stdscr.getmaxyx()
+    screen = []
+
+    for row in range(y):
+        line = str(stdscr.instr(row,0))
+        line = line[2:len(line)-1].strip()
+        if len(line) > 1:
+            screen.append(line)
+    return screen
+
+def print_screen(screen):
+    for line in screen:
+        print(line)
 
 def contains(vanity, address):
     return vanity in address
@@ -36,7 +66,6 @@ def get_color_pair(progress):
     else:
         return curses.color_pair(102)
 
-
 def generate_address(vanity, attempts, queue, location):
     not_found = True
 
@@ -57,6 +86,9 @@ def generate_address(vanity, attempts, queue, location):
 
 if __name__ == "__main__":
 
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     parser = argparse.ArgumentParser(description="Algorand vanity address generator")
     parser.add_argument('vanity', type=str, help="String to look for")
     parser.add_argument('-t', '--threads', type=int, default=0, 
@@ -76,7 +108,6 @@ if __name__ == "__main__":
     start_time = time.time()
 
     proc_count = num_processors = multiprocessing.cpu_count();
-    processes = []
 
     for i in range(proc_count):
         proc = Process(target=generate_address, args=(vanity,attempts, queue, args.location))
@@ -126,8 +157,7 @@ if __name__ == "__main__":
         except Empty:
             pass
 
-    for proc in processes:
-        proc.terminate()
+    terminate_processes()
 
     address_mnemonic = mnemonic.from_private_key(private_key)
 
@@ -139,6 +169,13 @@ if __name__ == "__main__":
     stdscr.addstr(20, 0, "")
     stdscr.refresh()
 
+    screen = save_screen(stdscr)
+    
+
+    curses.use_default_colors()
     curses.nocbreak()
     curses.echo()
     curses.curs_set(1)
+    curses.endwin()
+
+    print_screen(screen)
