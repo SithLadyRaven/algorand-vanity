@@ -109,6 +109,9 @@ if __name__ == "__main__":
 
     proc_count = num_processors = multiprocessing.cpu_count();
 
+    if args.threads > 0:
+        proc_count = args.threads
+
     for i in range(proc_count):
         proc = Process(target=generate_address, args=(vanity,attempts, queue, args.location))
         processes.append(proc)
