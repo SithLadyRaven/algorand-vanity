@@ -67,12 +67,14 @@ if __name__ == "__main__":
 
     address = None
     private_key = None
+    total_attempts = 0
 
     stdscr.addstr(0,0, "Attempting to find: " + vanity)
     while address == None:
         address, private_key = queue.get()
         time_diff = time.time()-start_time
-        
+        total_attempts = attempts.value
+
         stdscr.addstr(1,0, "Addresses checked: {0}".format(attempts.value))
         stdscr.addstr(2,0, "Execution time: {0}s".format(int(time_diff)))
 
@@ -85,11 +87,13 @@ if __name__ == "__main__":
     for proc in processes:
         proc.terminate()
 
-    stdscr.addstr(6,0, "Vanity found!")
-    stdscr.addstr(7,0,  "Address: {0}".format(address))
-    stdscr.addstr(8,0, "Mnemonic: {0}".format(mnemonic.from_private_key(private_key)))
+    curses.nocbreak()
+    curses.echo()
+    curses.endwin()
 
-
-    stdscr.addstr(11,0, "")
-
-    stdscr.refresh()
+    print("Total addresses checked: " + str(total_attempts))
+    print("Total Execution time: " + str(int(time_diff)))
+    print("Attempts per second: " + str(aps))
+    print("Vanity found!")
+    print("Address: " + address)
+    print( "Mnemonic: " + mnemonic.from_private_key(private_key))
