@@ -1,11 +1,12 @@
 import argparse
 import curses
 import multiprocessing
+import os.path
 import re
 import signal
 import time
 from algosdk import account, mnemonic
-from multiprocessing import Process, Value, Lock, Queue
+from multiprocessing import Process, Value, Lock, Manager
 from queue import Empty
 
 valid = re.compile('^[A-Z2-7]+$')
@@ -13,46 +14,44 @@ update_rate = 1/30
 processes = []
 
 def signal_handler(sig, frame):
-    terminate_processes()
-    screen = save_screen(stdscr)
+    terminate_processes(processes)
     curses.use_default_colors()
     curses.nocbreak()
     curses.echo()
     curses.curs_set(1)
-    print_screen(screen)
     exit()
 
-def terminate_processes():
+def worker_handler(sig, frame):
+    exit()
+
+def terminate_processes(processes):
     for proc in processes:
         proc.terminate()
-
-def save_screen(stdscr):
-    y, x = stdscr.getmaxyx()
-    screen = []
-
-    for row in range(y):
-        line = str(stdscr.instr(row,0))
-        line = line[2:len(line)-1].strip()
-        if len(line) > 1:
-            screen.append(line)
-    return screen
-
-def print_screen(screen):
-    for line in screen:
-        print(line)
-
-def contains(vanity, address):
-    return vanity in address
 
 def check(vanity_str):
     return valid.match(vanity_str) is None
 
-def calculate_expected_attempts(vanity):
-    length = len(vanity)
+def calculate_expected_attempts(vanities):
+    worst = 0
+    for v in vanities:
+        length = len(v)
 
-    # each address character can be 1 of 32 possibilities
-    expected = pow(32, length) 
-    return expected
+        # each address character can be 1 of 32 possibilities
+        expected = pow(32, length)
+        if expected > worst:
+            worst = expected
+    return worst
+
+def check_writable(filename):
+    if os.path.exists(filename):
+        if os.path.isfile(filename):
+            return os.access(filename, os.W_OK)
+        else:
+            return False
+    fdir = os.path.dirname(filename)
+    if not fdir:
+        fdir = '.'
+    return os.access(fdir, os.W_OK)
 
 def calculate_progress(current_attempts, expected_attempts):
     progress = (current_attempts/expected_attempts) * 100
@@ -66,23 +65,38 @@ def get_color_pair(progress):
     else:
         return curses.color_pair(102)
 
-def generate_address(vanity, attempts, queue, location):
-    not_found = True
+def output_result(filename, address, mnemonic):
+    f = open(filename, "a")
+    f.write(address + "\n")
+    f.write(mnemonic + "\n")
+    f.close()
 
-    while not_found:
-        with attempts.get_lock():
-            attempts.value += 1
+def get_mnemonic(private_key):
+    return mnemonic.from_private_key(private_key)
+
+def generate_address(attempts, results, filename):
+    signal.signal(signal.SIGINT, worker_handler)
+    signal.signal(signal.SIGTERM, worker_handler)
+    count = 0
+    cont = True
+
+    vanities = results.keys()
+
+    while cont:
+        count = count + 1
+        if count == 10:
+            with attempts.get_lock():
+                attempts.value += 10
+            count = 0
 
         private_key, address = account.generate_account()
 
-        match_method = {
-            'start' : address.startswith,
-            'end' : address.endswith,
-        }
-
-        if match_method[location](vanity):
-            queue.put((address, private_key))
-            not_found = False
+        for v in vanities:
+            if address.startswith(v):
+                if results[v] == "":
+                    mnemonic = get_mnemonic(private_key)
+                    results[v] = (address, mnemonic)
+                    output_result(filename, address, mnemonic)
 
 if __name__ == "__main__":
 
@@ -90,21 +104,33 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
 
     parser = argparse.ArgumentParser(description="Algorand vanity address generator")
-    parser.add_argument('vanity', type=str, help="String to look for")
+    parser.add_argument('vanity', nargs='+', type=str, help="String to look for")
     parser.add_argument('-t', '--threads', type=int, default=0, 
                         help="Number of threads to use for processing. By default will use the # of available cores.")
     parser.add_argument('-l', '--location', type=str, choices=['start', 'end'], help="Where to match the vanity string within the address", default="start")
-    parser.add_argument('-o', '--output', action='store_true')
+    parser.add_argument('-f', '--filename', type=str, default="vanity_addresses")
     args = parser.parse_args()
 
-    vanity = args.vanity.upper()
-
-    if check(vanity):
-        print("Invalid vanity string provided. Algorand addresses may only contain the letters A-Z and digits 2-7")
+    if check_writable(args.filename) == False:
+        print("Output file is not writeable")
+        print("Output file: " + args.filename)
         exit()
 
-    attempts = Value('i', 0)
-    queue = Queue()
+    manager = Manager()
+    results = manager.dict()
+
+    vanities = args.vanity
+    longest = 0
+    for v in vanities:
+        if check(v):
+            print("Invalid vanity string provided" + v + ". Algorand addresses may only contain the letters A-Z and digits 2-7")
+            exit()
+        results[v] = ""
+        if len(v) > longest:
+            longest = len(v)
+
+    attempts = Value('L', 0)
+
     start_time = time.time()
 
     proc_count = num_processors = multiprocessing.cpu_count();
@@ -113,7 +139,7 @@ if __name__ == "__main__":
         proc_count = args.threads
 
     for i in range(proc_count):
-        proc = Process(target=generate_address, args=(vanity,attempts, queue, args.location))
+        proc = Process(target=generate_address, args=(attempts, results, args.filename))
         processes.append(proc)
         proc.start()
 
@@ -130,50 +156,56 @@ if __name__ == "__main__":
     address = None
     private_key = None
     total_attempts = 0
-    expected_attempts = calculate_expected_attempts(vanity)
+    expected_attempts = calculate_expected_attempts(vanities)
 
-    search_vanity = "Searching for: " + vanity
-    stdscr.addstr(0, 0, search_vanity)
     stdscr.addstr(0, 40, "Expected attempts: " + str(expected_attempts))
-    while address == None:
+    remain = 0
+    vanity = ""
+    while True:
         time_diff = time.time()-start_time
         total_attempts = attempts.value
-
+       
+        if remain > 1:
+            stdscr.addstr(0, 0, "Addresses remaining: {0}".format(remain))
+        else:
+            stdscr.addstr(0, 0, "Looking for: " + vanity) 
         stdscr.addstr(1, 0, "Execution time: {:.2f}s".format(time_diff))
         stdscr.addstr(1, 40, "Addresses checked: " + str(attempts.value))
 
         aps = int(attempts.value/(time_diff + 1))
 
-        stdscr.addstr(2, 0, "Attempts per second: {0}s".format(aps))
+        stdscr.addstr(2, 0, "Attempts per second: {0}".format(aps))
+        stdscr.clrtoeol()
 
         progress = calculate_progress(attempts.value, expected_attempts)
 
         stdscr.addstr(2, 40, "Current progress:")
         stdscr.addstr(2, 59, "{:.2f}%".format(progress), get_color_pair(progress))
         stdscr.clrtoeol()
+        stdscr.addstr(4, 0, "Vanity status:")
         stdscr.refresh()
 
         time.sleep(update_rate)
 
-        try:
-            address, private_key = queue.get_nowait()
-        except Empty:
-            pass
+        finished = True
+        remain = 0 
+        line = 5
 
-    terminate_processes()
+        for r in results:
+            stdscr.addstr(line, 0, r)
+            if results[r] == "":
+                finished = False
+                remain = remain + 1;
+                vanity = r
+                stdscr.addstr(line, longest+2, "Searching")
+                line = line + 1
+            else:
+                stdscr.addstr(line, longest+2, "Found!")
+                line = line+1
 
-    address_mnemonic = mnemonic.from_private_key(private_key)
-
-    stdscr.addstr(6, 0, "Total addresses checked: " + str(total_attempts))
-    stdscr.addstr(7, 0, "Total execution time: {:.0f}s".format(time_diff))
-    stdscr.addstr(8, 0, "Attempts per second: {}".format(aps))
-    stdscr.addstr(10, 0, "Address: " + address)
-    stdscr.addstr(11, 0, "Mnemonic: " + address_mnemonic)
-    stdscr.addstr(20, 0, "")
-    stdscr.refresh()
-
-    screen = save_screen(stdscr)
-    
+        stdscr.refresh()
+        if finished:
+            break
 
     curses.use_default_colors()
     curses.nocbreak()
@@ -181,4 +213,9 @@ if __name__ == "__main__":
     curses.curs_set(1)
     curses.endwin()
 
-    print_screen(screen)
+    print("All vanities found!")
+    print("Total Addresses checked: " + str(total_attempts))
+    print("Total execution time: {:.0f}s".format(time_diff))
+    print("Attempts per second: " + str(aps))
+
+    terminate_processes(processes)
