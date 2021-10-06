@@ -6,12 +6,12 @@ import re
 import signal
 import time
 from algosdk import account, mnemonic
-from multiprocessing import Process, Value, Lock, Manager
-from queue import Empty
+from multiprocessing import Process, Value, Manager
 
 valid = re.compile('^[A-Z2-7]+$')
 update_rate = 1/30
 processes = []
+
 
 def signal_handler(sig, frame):
     terminate_processes(processes)
@@ -21,15 +21,19 @@ def signal_handler(sig, frame):
     curses.curs_set(1)
     exit()
 
+
 def worker_handler(sig, frame):
     exit()
+
 
 def terminate_processes(processes):
     for proc in processes:
         proc.terminate()
 
+
 def check(vanity_str):
     return valid.match(vanity_str) is None
+
 
 def calculate_expected_attempts(vanities):
     worst = 0
@@ -42,6 +46,7 @@ def calculate_expected_attempts(vanities):
             worst = expected
     return worst
 
+
 def check_writable(filename):
     if os.path.exists(filename):
         if os.path.isfile(filename):
@@ -53,9 +58,11 @@ def check_writable(filename):
         fdir = '.'
     return os.access(fdir, os.W_OK)
 
+
 def calculate_progress(current_attempts, expected_attempts):
     progress = (current_attempts/expected_attempts) * 100
     return progress
+
 
 def get_color_pair(progress):
     if progress < 50:
@@ -65,14 +72,17 @@ def get_color_pair(progress):
     else:
         return curses.color_pair(102)
 
+
 def output_result(filename, address, mnemonic):
     f = open(filename, "a")
     f.write(address + "\n")
     f.write(mnemonic + "\n")
     f.close()
 
+
 def get_mnemonic(private_key):
     return mnemonic.from_private_key(private_key)
+
 
 def generate_address(attempts, results, filename):
     signal.signal(signal.SIGINT, worker_handler)
@@ -98,6 +108,7 @@ def generate_address(attempts, results, filename):
                     results[v] = (address, mnemonic)
                     output_result(filename, address, mnemonic)
 
+
 if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -105,13 +116,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Algorand vanity address generator")
     parser.add_argument('vanity', nargs='+', type=str, help="String to look for")
-    parser.add_argument('-t', '--threads', type=int, default=0, 
+    parser.add_argument('-t', '--threads', type=int, default=0,
                         help="Number of threads to use for processing. By default will use the # of available cores.")
-    parser.add_argument('-l', '--location', type=str, choices=['start', 'end'], help="Where to match the vanity string within the address", default="start")
+    parser.add_argument('-l', '--location', type=str, choices=['start', 'end'],
+                        help="Where to match the vanity string within the address", default="start")
     parser.add_argument('-f', '--filename', type=str, default="vanity_addresses")
     args = parser.parse_args()
 
-    if check_writable(args.filename) == False:
+    if not check_writable(args.filename):
         print("Output file is not writeable")
         print("Output file: " + args.filename)
         exit()
@@ -123,7 +135,8 @@ if __name__ == "__main__":
     longest = 0
     for v in vanities:
         if check(v):
-            print("Invalid vanity string provided" + v + ". Algorand addresses may only contain the letters A-Z and digits 2-7")
+            print("Invalid vanity string provided" + v +
+                  ". Algorand addresses may only contain the letters A-Z and digits 2-7")
             exit()
         results[v] = ""
         if len(v) > longest:
@@ -133,7 +146,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    proc_count = num_processors = multiprocessing.cpu_count();
+    proc_count = num_processors = multiprocessing.cpu_count()
 
     if args.threads > 0:
         proc_count = args.threads
@@ -143,7 +156,7 @@ if __name__ == "__main__":
         processes.append(proc)
         proc.start()
 
-    stdscr = curses.initscr();
+    stdscr = curses.initscr()
     curses.noecho()
     curses.cbreak()
     curses.curs_set(0)
@@ -164,11 +177,12 @@ if __name__ == "__main__":
     while True:
         time_diff = time.time()-start_time
         total_attempts = attempts.value
-       
+
         if remain > 1:
             stdscr.addstr(0, 0, "Addresses remaining: {0}".format(remain))
         else:
-            stdscr.addstr(0, 0, "Looking for: " + vanity) 
+            stdscr.addstr(0, 0, "Looking for: " + vanity)
+
         stdscr.addstr(1, 0, "Execution time: {:.2f}s".format(time_diff))
         stdscr.addstr(1, 40, "Addresses checked: " + str(attempts.value))
 
@@ -188,14 +202,14 @@ if __name__ == "__main__":
         time.sleep(update_rate)
 
         finished = True
-        remain = 0 
+        remain = 0
         line = 5
 
         for r in results:
             stdscr.addstr(line, 0, r)
             if results[r] == "":
                 finished = False
-                remain = remain + 1;
+                remain = remain + 1
                 vanity = r
                 stdscr.addstr(line, longest+2, "Searching")
                 line = line + 1
