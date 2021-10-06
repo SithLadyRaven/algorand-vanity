@@ -202,6 +202,7 @@ if __name__ == "__main__":
             else:
                 stdscr.addstr(line, longest+2, "Found!")
                 line = line+1
+            stdscr.clrtoeol()
 
         stdscr.refresh()
         if finished:
