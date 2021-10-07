@@ -13,12 +13,18 @@ update_rate = 1/30
 processes = []
 
 
+def end_curses():
+    if not curses.isendwin():
+        curses.use_default_colors()
+        curses.nocbreak()
+        curses.echo()
+        curses.curs_set(1)
+        curses.endwin()
+
+
 def signal_handler(sig, frame):
     terminate_processes(processes)
-    curses.use_default_colors()
-    curses.nocbreak()
-    curses.echo()
-    curses.curs_set(1)
+    end_curses()
     exit()
 
 
@@ -66,11 +72,11 @@ def calculate_progress(current_attempts, expected_attempts):
 
 def get_color_pair(progress):
     if progress < 50:
-        return curses.color_pair(100)
+        return curses.color_pair(30)
     elif progress < 90:
-        return curses.color_pair(101)
+        return curses.color_pair(31)
     else:
-        return curses.color_pair(102)
+        return curses.color_pair(32)
 
 
 def output_result(filename, address, mnemonic):
@@ -162,9 +168,9 @@ if __name__ == "__main__":
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    curses.init_pair(100, curses.COLOR_BLACK, curses.COLOR_GREEN)
-    curses.init_pair(101, curses.COLOR_BLACK, curses.COLOR_YELLOW)
-    curses.init_pair(102, curses.COLOR_BLACK, curses.COLOR_RED)
+    curses.init_pair(30, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(31, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+    curses.init_pair(32, curses.COLOR_BLACK, curses.COLOR_RED)
 
     address = None
     private_key = None
@@ -222,11 +228,7 @@ if __name__ == "__main__":
         if finished:
             break
 
-    curses.use_default_colors()
-    curses.nocbreak()
-    curses.echo()
-    curses.curs_set(1)
-    curses.endwin()
+    end_curses()
 
     print("All vanities found!")
     print("Total Addresses checked: " + str(total_attempts))
