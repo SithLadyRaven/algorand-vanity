@@ -79,6 +79,7 @@ def get_color_pair(progress):
         return curses.color_pair(32)
 
 
+
 def output_result(filename, address, mnemonic):
     f = open(filename, "a")
     f.write(address + "\n")
@@ -90,7 +91,7 @@ def get_mnemonic(private_key):
     return mnemonic.from_private_key(private_key)
 
 
-def generate_address(attempts, results, filename):
+def generate_address(attempts, results, filename, output_lock):
     signal.signal(signal.SIGINT, worker_handler)
     signal.signal(signal.SIGTERM, worker_handler)
     count = 0
@@ -100,9 +101,9 @@ def generate_address(attempts, results, filename):
 
     while cont:
         count = count + 1
-        if count == 10:
+        if count == 100:
             with attempts.get_lock():
-                attempts.value += 10
+                attempts.value += 100
             count = 0
 
         private_key, address = account.generate_account()
@@ -112,7 +113,8 @@ def generate_address(attempts, results, filename):
                 if results[v] == "":
                     mnemonic = get_mnemonic(private_key)
                     results[v] = (address, mnemonic)
-                    output_result(filename, address, mnemonic)
+                    with output_lock:
+                        output_result(filename, address, mnemonic)
 
 
 if __name__ == "__main__":
@@ -136,6 +138,7 @@ if __name__ == "__main__":
 
     manager = Manager()
     results = manager.dict()
+    output_lock = manager.Lock()
 
     vanities = args.vanity
     longest = 0
@@ -158,7 +161,7 @@ if __name__ == "__main__":
         proc_count = args.threads
 
     for i in range(proc_count):
-        proc = Process(target=generate_address, args=(attempts, results, args.filename))
+        proc = Process(target=generate_address, args=(attempts, results, args.filename, output_lock))
         processes.append(proc)
         proc.start()
 
