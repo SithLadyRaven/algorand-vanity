@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "algorand-vanity"
-version = "1.0.2"
+version = "1.0.3"
 description = "Vanity address generator for algorand wallets"
 license = "MIT"
 authors = [ "Kelsey Price <contact@kelsey.dev>"]
