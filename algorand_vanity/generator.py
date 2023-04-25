@@ -28,9 +28,6 @@ def signal_handler(sig, frame):
     exit()
 
 
-def worker_handler(sig, frame):
-    exit()
-
 
 def terminate_processes(processes):
     for proc in processes:
@@ -92,8 +89,6 @@ def get_mnemonic(private_key):
 
 
 def generate_address(attempts, results, filename, output_lock):
-    signal.signal(signal.SIGINT, worker_handler)
-    signal.signal(signal.SIGTERM, worker_handler)
     count = 0
     cont = True
 
