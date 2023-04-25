@@ -8,14 +8,14 @@ Python utility for generating vanity algorand wallet addresses.
 poetry install
 ```
 
-##Installing with pip
+## Installing with pip
 ```bash
 pip install algorand-vanity
 ```
 
 ## Usage
 ```bash
-algorand-vanity ADDRESS1 ADDRESS2
+algorand_vanity ADDRESS1 ADDRESS2
 ```
 
 ## Options
