@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "algorand-vanity"
+version = "1.0.1"
+description = "Vanity address generator for algorand wallets"
+license = "MIT"
+authors = [ "Kelsey Price <contact@kelsey.dev>"]
+readme = "README.md"
+repository = "https://github.com/sithladyraven/algorand-vanity"
+packages = [{include = "algorand_vanity"}]
+keywords = ["algorand", "crypto", "cryptocurrency", "cryptowallet"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+py-algorand-sdk = "^2.1.2"
+windows-curses = {version = "^2.3.1", platform = "linux"}
+
+[tool.poetry.scripts]
+algorand_vanity = "algorand_vanity.generator:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

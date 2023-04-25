@@ -117,8 +117,7 @@ def generate_address(attempts, results, filename, output_lock):
                         output_result(filename, address, mnemonic)
 
 
-if __name__ == "__main__":
-
+def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -239,3 +238,6 @@ if __name__ == "__main__":
     print("Attempts per second: " + str(aps))
 
     terminate_processes(processes)
+
+if __name__ == "__main__":
+    main()
