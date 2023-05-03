@@ -119,9 +119,11 @@ def main():
     parser = argparse.ArgumentParser(description="Algorand vanity address generator")
     parser.add_argument('vanity', nargs='+', type=str, help="String to look for")
     parser.add_argument('-t', '--threads', type=int, default=0,
-                        help="Number of threads to use for processing. By default will use the # of available cores.")
+                        help="Number of threads to use for processing. By default \
+                            will use the # of available cores.")
     parser.add_argument('-l', '--location', type=str, choices=['start', 'end'],
-                        help="Where to match the vanity string within the address", default="start")
+                        help="Where to match the vanity string within the address",
+                        default="start")
     parser.add_argument('-f', '--filename', type=str, default="vanity_addresses")
     args = parser.parse_args()
 
@@ -139,7 +141,8 @@ def main():
     for v in vanities:
         if check(v):
             print("Invalid vanity string provided" + v +
-                  ". Algorand addresses may only contain the letters A-Z and digits 2-7")
+                  ". Algorand addresses may only contain the letters \
+                    A-Z and digits 2-7")
             exit()
         results[v] = ""
         if len(v) > longest:
@@ -149,13 +152,14 @@ def main():
 
     start_time = time.time()
 
-    proc_count = num_processors = multiprocessing.cpu_count()
+    proc_count = multiprocessing.cpu_count()
 
     if args.threads > 0:
         proc_count = args.threads
 
     for i in range(proc_count):
-        proc = Process(target=generate_address, args=(attempts, results, args.filename, output_lock))
+        proc = Process(target=generate_address, 
+                       args=(attempts, results, args.filename, output_lock))
         processes.append(proc)
         proc.start()
 
@@ -169,8 +173,6 @@ def main():
     curses.init_pair(31, curses.COLOR_BLACK, curses.COLOR_YELLOW)
     curses.init_pair(32, curses.COLOR_BLACK, curses.COLOR_RED)
 
-    address = None
-    private_key = None
     total_attempts = 0
     expected_attempts = calculate_expected_attempts(vanities)
 
