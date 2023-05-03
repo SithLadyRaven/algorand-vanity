@@ -1,5 +1,5 @@
 # Algorand Vanity
-[![GitHub license](https://img.shields.io/github/license/sithladyraven/algorand-vanity.svg?style=social)](https://github.com/sithladyraven/algorand-vanity/blob/master/LICENSE) [![PyPI version](https://badge.fury.io/py/algorand-vanity.svg)](https://badge.fury.io/py/algorand-vanity) 
+![GitHub](https://img.shields.io/github/license/SithLadyRaven/algorand-vanity) ![PyPI](https://img.shields.io/pypi/v/algorand-vanity)
 
 Python utility for generating vanity algorand wallet addresses.
 
